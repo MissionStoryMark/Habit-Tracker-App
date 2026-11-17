@@ -678,7 +678,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   }
 
   /* ---------- Sound ---------- */
-  let ac = null, master = null, noiseBuf = null, hum = null;
+  let ac = null, master = null, echo = null, noiseBuf = null, hum = null;
   const muted = () => !!state.mute;
   function audio() {
     try {
@@ -691,6 +691,12 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
         const comp = ac.createDynamicsCompressor();
         master = ac.createGain(); master.gain.value = .9;
         master.connect(comp); comp.connect(ac.destination);
+        // A soft repeating echo, for the airy sounds to trail off into.
+        echo = ac.createDelay(1); echo.delayTime.value = .29;
+        const fb = ac.createGain(), damp = ac.createBiquadFilter(), wet = ac.createGain();
+        fb.gain.value = .5; damp.type = 'lowpass'; damp.frequency.value = 3200; wet.gain.value = .5;
+        echo.connect(damp); damp.connect(fb); fb.connect(echo);
+        echo.connect(wet); wet.connect(master);
         noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
         const d = noiseBuf.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -737,41 +743,62 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   const SCALE = [0, 2, 4, 7, 9];
   const note = (i) => 392 * Math.pow(2, (Math.floor(i / 5) * 12 + SCALE[i % 5]) / 12);
 
-  // The charging sound: a low engine that brightens and rises, with a run of notes climbing over it.
+  // A glassy note that rings into the echo.
+  function chime(t, f, vol) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + .015);
+    g.gain.exponentialRampToValueAtTime(.0001, t + .7);
+    o.connect(g); g.connect(master); g.connect(echo); o.start(t); o.stop(t + .75);
+  }
+  // The charging sound: a high, airy pad (a note, its fifth and its octave, gently wavering)
+  // with a breath of air under it and glassy notes climbing over it, all rising as the bar fills.
   function humStart() {
     if (muted() || hum) return;
     const a = audio();
     if (!a || a.state !== 'running') return;
-    const o = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter(), g = a.createGain();
-    o.type = 'sawtooth'; o2.type = 'sawtooth';
-    o.frequency.value = 82; o2.frequency.value = 82.8;
-    lp.type = 'lowpass'; lp.frequency.value = 300; lp.Q.value = 6;
+    const g = a.createGain(), lfo = a.createOscillator(), depth = a.createGain();
     g.gain.value = 0;
-    o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
-    o.start(); o2.start();
-    hum = { o, o2, lp, g, step: -1 };
+    g.connect(master); g.connect(echo);
+    lfo.frequency.value = 5.2; depth.gain.value = 3;
+    lfo.connect(depth); lfo.start();
+    const voices = [[1, .5, 'sine'], [1.5, .3, 'sine'], [2.005, .2, 'triangle'], [3, .08, 'sine']].map(([mult, vol, type]) => {
+      const o = a.createOscillator(), vg = a.createGain();
+      o.type = type; o.frequency.value = 392 * mult; vg.gain.value = vol;
+      depth.connect(o.frequency);
+      o.connect(vg); vg.connect(g); o.start();
+      return { o, mult };
+    });
+    const air = a.createBufferSource(), bp = a.createBiquadFilter(), ag = a.createGain();
+    air.buffer = noiseBuf; air.loop = true;
+    bp.type = 'bandpass'; bp.Q.value = 2.5; bp.frequency.value = 2400; ag.gain.value = .0001;
+    air.connect(bp); bp.connect(ag); ag.connect(master); ag.connect(echo); air.start();
+    hum = { g, lfo, voices, air, bp, ag, step: -1 };
   }
   function humSet(p) {
     if (!hum) return;
-    const t = ac.currentTime, q = p * p;
-    hum.o.frequency.setTargetAtTime(82 + q * 250, t, .04);
-    hum.o2.frequency.setTargetAtTime(82.8 + q * 254, t, .04);
-    hum.lp.frequency.setTargetAtTime(300 + q * 3800, t, .04);
-    hum.g.gain.setTargetAtTime(.05 + p * .13, t, .04);
+    const t = ac.currentTime, f = 392 * Math.pow(2, p * p); // rises a full octave, slowly at first
+    hum.voices.forEach((v) => v.o.frequency.setTargetAtTime(f * v.mult, t, .05));
+    hum.g.gain.setTargetAtTime(.035 + p * .075, t, .06);
+    hum.bp.frequency.setTargetAtTime(2400 + p * 6000, t, .05);
+    hum.ag.gain.setTargetAtTime(.01 + p * .05, t, .06);
     const s = Math.floor(p * 14);
-    if (s > hum.step) { hum.step = s; tone(t, note(s), .16, .1, 'triangle'); }
+    if (s > hum.step) { hum.step = s; chime(t, note(s + 5), .07); }
   }
   function humStop() {
     if (!hum) return;
     const h = hum; hum = null;
     const t = ac.currentTime;
-    h.g.gain.setTargetAtTime(0, t, .03);
-    h.o.stop(t + .25); h.o2.stop(t + .25);
+    h.g.gain.setTargetAtTime(0, t, .07);
+    h.ag.gain.setTargetAtTime(0, t, .07);
+    h.voices.forEach((v) => v.o.stop(t + .6));
+    h.lfo.stop(t + .6); h.air.stop(t + .6);
   }
   const sfx = {
     enter: () => play((t) => { whoosh(t, .8, 300, 4000, .18); [0, 2, 4, 7].forEach((n, i) => bell(t + .1 + i * .09, note(n + 2), .1)); }),
     tap: (i) => play((t) => { tone(t, note(i * 2), .22, .17, 'triangle'); tone(t, note(i * 2) * 2, .1, .05, 'sine'); }),
-    ready: (i) => play((t) => tone(t, note(12 + (i % 3)), .12, .07, 'triangle')),
+    ready: (i) => play((t) => chime(t, note(15 + (i % 3)), .04)),
     fizzle: () => play((t) => { tone(t, 420, .3, .1, 'triangle', 90); whoosh(t, .3, 2500, 300, .08); }),
     undo: () => play((t) => tone(t, 520, .18, .1, 'sine', 200)),
     click: () => play((t) => tone(t, 880, .06, .06, 'sine')),
