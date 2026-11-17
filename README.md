@@ -1,6 +1,6 @@
 # Daybreak Streaks
 
-A tiny personal habit tracker. Add the things you want to do every day, hold one down until it is full (or tap its circle fast), and watch the streak grow. Holding charges the row from left to right with a rising hum and buzz; the pop comes with a chime, a glow, stardust and a rumble. Long streaks open portals to new colour worlds. Streak milestones (1, 3, 7, 14, 21, 30, 50, 100, 365 days…) get a full-screen celebration.
+A tiny personal habit tracker. Add the things you want to do every day, hold one down until it is full (or tap its circle fast), and watch the streak grow. Holding charges the row from left to right with a rising hum and buzz; the pop comes with a chime, a glow, stardust and a rumble. Long streaks open portals to new colour worlds. Each habit can have its own celebration: up to three emojis and a picture that fly across the screen in place of the stardust. Streak milestones (1, 3, 7, 14, 21, 30, 50, 100, 365 days…) get a full-screen celebration.
 
 ## Files
 
