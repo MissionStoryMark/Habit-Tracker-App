@@ -47,6 +47,15 @@
   color-scheme: dark;
 }
 
+/* Worlds: each one swaps the three glow colours. Streak milestones open them. */
+[data-world="daybreak"] { --rose: #ff3d7f; --ember: #ff6a3d; --gold: #ffb52e; --on-sun: #2b1005; }
+[data-world="aurora"]   { --rose: #a58bff; --ember: #3fd0ff; --gold: #5ef2c0; --on-sun: #06201c; }
+[data-world="tidemoon"] { --rose: #7b7bff; --ember: #6fa8ff; --gold: #cfeaff; --on-sun: #0a1238; }
+[data-world="nebula"]   { --rose: #7f8bff; --ember: #c77dff; --gold: #ffa3f5; --on-sun: #1c0633; }
+[data-world="wildwood"] { --rose: #2fd0a5; --ember: #7be07a; --gold: #e8ff7a; --on-sun: #05230f; }
+[data-world="sungold"]  { --rose: #ff9a3c; --ember: #ffc94d; --gold: #fff3b0; --on-sun: #2b1005; }
+[data-world="prism"]    { --rose: #ff8fb1; --ember: #ffe27a; --gold: #7df0d0; --on-sun: #1b1630; }
+
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
@@ -88,9 +97,35 @@ button { cursor: pointer; }
 .sky {
   --p: 0;
   position: relative;
+  display: block; width: 100%;
   height: 148px;
+  padding: 0;
   overflow: hidden;
+  background: none;
+  border: 0;
   border-bottom: 2px solid var(--line);
+}
+.sky:focus-visible { outline: 3px solid var(--ember); outline-offset: 3px; }
+.stars {
+  position: absolute; left: 0; top: 0;
+  width: 2px; height: 2px; border-radius: 50%;
+  color: var(--muted);
+  box-shadow: 28px 34px, 82px 72px, 128px 20px, 188px 60px, 246px 28px, 302px 84px, 340px 46px, 58px 104px, 222px 98px, 404px 24px, 160px 112px, 14px 76px;
+  opacity: calc(.95 - var(--p) * .7);
+  animation: twinkle 2.8s ease-in-out infinite alternate;
+}
+@keyframes twinkle { from { opacity: .3; } }
+.world-chip {
+  position: absolute; top: 8px; right: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px;
+  border: 1.5px solid var(--line); border-radius: 999px;
+  background: var(--bg); color: var(--muted);
+  font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+}
+.world-chip::before {
+  content: ""; width: 10px; height: 10px; border-radius: 50%;
+  background: conic-gradient(var(--rose), var(--gold), var(--ember), var(--rose));
 }
 .sky::before {
   content: "";
@@ -163,7 +198,7 @@ button { cursor: pointer; }
   display: inline-flex; align-items: center; gap: 5px;
   font-weight: 700; font-size: .9375rem;
   font-variant-numeric: tabular-nums;
-  color: var(--ember);
+  color: color-mix(in srgb, var(--ember) 68%, var(--ink));
 }
 .streak svg { width: 18px; height: 18px; flex: none; }
 .streak.cold { color: var(--muted); }
@@ -286,10 +321,64 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   background: linear-gradient(180deg, var(--rose) 0%, var(--ember) 45%, var(--gold) 100%);
   color: var(--on-sun);
   text-align: center;
-  animation: rise .5s cubic-bezier(.2, .9, .3, 1);
+  overflow: hidden;
+  animation: open .75s cubic-bezier(.3, .8, .2, 1);
 }
-@keyframes rise { from { opacity: 0; transform: translateY(40px); } }
-.milestone-inner { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 340px; }
+/* The celebration opens like a portal from the circle you tapped. */
+@keyframes open {
+  from { clip-path: circle(0 at var(--x, 50%) var(--y, 50%)); }
+  to { clip-path: circle(150% at var(--x, 50%) var(--y, 50%)); }
+}
+.milestone::before {
+  content: "";
+  position: absolute; left: 50%; top: 50%;
+  width: 200vmax; height: 200vmax; margin: -100vmax 0 0 -100vmax;
+  background: repeating-conic-gradient(from 0deg, transparent 0 15deg, rgba(255, 255, 255, .16) 15deg 30deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 6%, #000 40%, transparent 85%);
+  mask: radial-gradient(closest-side, transparent 6%, #000 40%, transparent 85%);
+  animation: spin 40s linear infinite;
+}
+.portal-ring {
+  position: fixed; z-index: 38;
+  width: 120px; height: 120px; margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  pointer-events: none; opacity: 0;
+  background: conic-gradient(var(--rose), var(--gold), var(--ember), var(--rose));
+  -webkit-mask: radial-gradient(closest-side, transparent 64%, #000 68%, #000 90%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 64%, #000 68%, #000 90%, transparent 100%);
+}
+.portal-ring.go { animation: portal 1.1s cubic-bezier(.2, .7, .2, 1); }
+@keyframes portal {
+  0% { opacity: 1; transform: scale(.3) rotate(0deg); }
+  100% { opacity: 0; transform: scale(8) rotate(220deg); }
+}
+.ms-portal { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.ms-portal small { font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.ms-portal strong { font: 800 2rem/1.05 var(--display); letter-spacing: -.02em; }
+
+/* World picker */
+.sheet .sub { margin: -8px 0 0; color: var(--muted); font-size: .9375rem; }
+.worlds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.world {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; min-height: 60px; padding: 8px 14px 8px 10px;
+  border: 2px solid transparent; border-radius: 16px;
+  background: var(--bg); color: var(--ink);
+  text-align: left;
+}
+.world:focus-visible { outline: 3px solid var(--ember); outline-offset: 2px; }
+.world .orb {
+  flex: none; width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--gold), var(--ember) 60%, var(--rose));
+}
+.world .txt { display: flex; flex-direction: column; min-width: 0; }
+.world .txt b { font: 800 1.0625rem/1.2 var(--display); }
+.world .txt span { font-size: .8125rem; color: var(--muted); }
+.world.here { border-color: var(--ember); }
+.world:disabled { cursor: default; }
+.world:disabled .orb { background: var(--line); }
+.world:disabled .txt b { color: var(--muted); letter-spacing: .2em; }
+.milestone-inner { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 340px; }
 .milestone .big { font: 800 clamp(6rem, 38vw, 10rem)/.85 var(--display); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
 .milestone .unit { font: 800 1.75rem/1.1 var(--display); letter-spacing: -.01em; }
 .milestone p { margin: 6px 0 14px; font-size: 1.0625rem; font-weight: 600; text-wrap: balance; }
@@ -310,10 +399,12 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     <h1 class="count" id="count">Daybreak</h1>
   </header>
 
-  <div class="sky" id="sky" aria-hidden="true">
-    <div class="rays"></div>
-    <div class="sun"></div>
-  </div>
+  <button class="sky" id="sky" type="button" aria-label="Choose a world">
+    <span class="stars"></span>
+    <span class="rays"></span>
+    <span class="sun"></span>
+    <span class="world-chip" id="world-chip">Daybreak</span>
+  </button>
 
   <ul class="list" id="list"></ul>
 
@@ -321,7 +412,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     Add a habit
   </button>
-  <p class="hint" id="hint">Tap the circle when it's done. Tap a name to rename it.</p>
+  <p class="hint" id="hint">Tap the circle when it's done. Tap a name to rename it. Tap the sky to travel.</p>
 </main>
 
 <dialog class="sheet" id="sheet">
@@ -348,9 +439,21 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     <div class="big" id="ms-num">7</div>
     <div class="unit" id="ms-unit">day streak</div>
     <p id="ms-text"></p>
+    <div class="ms-portal" id="ms-portal" hidden><small>A portal opened</small><strong id="ms-world"></strong></div>
     <button class="btn" id="ms-close" type="button">Keep going</button>
   </div>
 </div>
+
+<dialog class="sheet" id="worlds">
+  <form method="dialog">
+    <h2>Worlds</h2>
+    <p class="sub">Long streaks open portals to new ones.</p>
+    <ul class="worlds" id="world-list"></ul>
+    <div class="row"><button class="btn" id="worlds-close" type="button">Close</button></div>
+  </form>
+</dialog>
+
+<div class="portal-ring" id="portal-ring" aria-hidden="true"></div>
 
 <div class="flash" id="flash" aria-hidden="true"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -399,6 +502,26 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
 
   let state = seed();
   try { const raw = JSON.parse(localStorage.getItem(KEY)); if (valid(raw)) state = raw; } catch (e) {}
+
+  /* ---------- Worlds ---------- */
+  const WORLDS = [
+    { id: 'daybreak', name: 'Daybreak', at: 0 },
+    { id: 'aurora', name: 'Aurora', at: 1 },
+    { id: 'tidemoon', name: 'Tidemoon', at: 3 },
+    { id: 'nebula', name: 'Nebula', at: 7 },
+    { id: 'wildwood', name: 'Wildwood', at: 14 },
+    { id: 'sungold', name: 'Sungold', at: 30 },
+    { id: 'prism', name: 'Prism', at: 100 }
+  ];
+  // The longest streak ever reached on any habit decides which worlds are open.
+  const peak = () => Math.max(state.peak || 0, ...state.habits.map(bestOf));
+  function applyWorld() {
+    const w = WORLDS.find((x) => x.id === state.world && x.at <= peak()) || WORLDS[0];
+    if (w.id === 'daybreak') delete document.documentElement.dataset.world;
+    else document.documentElement.dataset.world = w.id;
+    $('world-chip').textContent = w.name;
+    return w;
+  }
 
   let cloud = null, writing = false, dirty = false;
   function save() {
@@ -468,8 +591,19 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
 
   /* ---------- Confetti ---------- */
   const cv = $('fx'), cx = cv.getContext('2d');
-  const COLORS = ['#ff3d7f', '#ff6a3d', '#ffb52e', '#ffe08a', '#7a5cff', '#ffffff'];
   let parts = [], raf = 0;
+  function palette() {
+    const cs = getComputedStyle(document.documentElement);
+    return ['--rose', '--ember', '--gold', '--gold'].map((v) => cs.getPropertyValue(v).trim()).concat(['#ffffff', '#fff3c4']);
+  }
+  function star(r) {
+    cx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, rr = i % 2 ? r * .32 : r;
+      cx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    cx.closePath(); cx.fill();
+  }
   function sizeCanvas() {
     const d = Math.min(window.devicePixelRatio || 1, 2);
     cv.width = innerWidth * d; cv.height = innerHeight * d;
@@ -479,14 +613,18 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   function spawn(mode, x, y, n) {
     if (reduced) return;
     if (!raf) sizeCanvas();
+    const COLORS = palette();
     for (let i = 0; i < n; i++) {
       const p = {
         x, y, vx: 0, vy: 0, g: .28, rot: rnd(0, 6.3), vr: rnd(-.3, .3),
         w: rnd(6, 12), h: rnd(4, 9), life: rnd(70, 130),
         c: COLORS[(Math.random() * COLORS.length) | 0],
-        shape: Math.random() < .25 ? 'dot' : Math.random() < .2 ? 'spark' : 'rect'
+        shape: Math.random() < .45 ? 'star' : Math.random() < .6 ? 'dot' : 'rect'
       };
-      if (mode === 'burst') {
+      if (mode === 'spiral') {
+        p.sp = { cx: x, cy: y, a: rnd(0, 6.3), r: rnd(4, 30), va: rnd(.05, .11), vr: rnd(1.6, 4.6) };
+        p.life = rnd(80, 140);
+      } else if (mode === 'burst') {
         const a = rnd(-Math.PI, 0) + rnd(-.3, .3), s = rnd(4, 15);
         p.vx = Math.cos(a) * s; p.vy = Math.sin(a) * s - 3;
       } else if (mode === 'rain') {
@@ -508,13 +646,20 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     cx.clearRect(0, 0, innerWidth, innerHeight);
     parts = parts.filter((p) => p.life > 0 && p.y < innerHeight + 60);
     for (const p of parts) {
-      p.vy += p.g; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life--;
+      if (p.sp) {
+        const s = p.sp;
+        s.a += s.va; s.r += s.vr; s.cy -= .6;
+        p.x = s.cx + Math.cos(s.a) * s.r; p.y = s.cy + Math.sin(s.a) * s.r;
+      } else {
+        p.vy += p.g; p.vx *= .985; p.x += p.vx; p.y += p.vy;
+      }
+      p.rot += p.vr; p.life--;
       cx.save();
       cx.globalAlpha = Math.min(1, p.life / 25);
       cx.translate(p.x, p.y); cx.rotate(p.rot);
       cx.fillStyle = p.c;
       if (p.shape === 'dot') { cx.beginPath(); cx.arc(0, 0, p.h * .6, 0, 6.3); cx.fill(); }
-      else if (p.shape === 'spark') { cx.fillRect(-p.w, -1.2, p.w * 2, 2.4); }
+      else if (p.shape === 'star') { star(p.w * .9); }
       else { cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.rot * 1.7)) + 1); }
       cx.restore();
     }
@@ -534,13 +679,18 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
   }
+  function ring(x, y) {
+    const r = $('portal-ring');
+    r.style.left = x + 'px'; r.style.top = y + 'px';
+    r.classList.remove('go'); void r.offsetWidth; r.classList.add('go');
+  }
   const PRAISE = [
-    (n) => `Day ${n}. The sun's got nothing on you.`,
-    (n) => `${n} in a row. Lit.`,
+    (n) => `Day ${n}. The stars took note.`,
+    (n) => `${n} in a row. Something is waking up.`,
     (n) => `Day ${n}, done before the excuses woke up.`,
-    (n) => `That's ${n}. Keep the fire going.`,
+    (n) => `That's ${n}. The portal hums a little louder.`,
     (n) => `${n} days. You showed up again.`,
-    (n) => `Day ${n} is in the books.`,
+    (n) => `Day ${n} is sealed.`,
     (n) => `${n} straight. Future you says thanks.`
   ];
   const MS_TEXT = {
@@ -617,6 +767,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     rows.clear();
     for (const h of state.habits) { list.appendChild(buildRow(h)); paintRow(h); }
     paintTop();
+    applyWorld();
     shownDay = dkey(today());
   }
 
@@ -625,38 +776,58 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     const h = state.habits.find((x) => x.id === id);
     if (!h) return;
     const k = dkey(today());
+    const before = peak();
     if (checked) h.days[k] = 1; else delete h.days[k];
+    const n = streakOf(h);
+    state.peak = Math.max(before, n);
+    const opened = checked ? WORLDS.filter((w) => w.at > before && w.at <= state.peak).pop() : null;
     save();
     paintRow(h);
     paintTop();
     if (!checked) { buzz([10]); return; }
 
-    const n = streakOf(h);
     const allDone = state.habits.every((x) => x.days[k]);
     const r = li.querySelector('.ring').getBoundingClientRect();
     const x = r.left + r.width / 2, y = r.top + r.height / 2;
     li.classList.remove('pop'); void li.offsetWidth; li.classList.add('pop');
     flash();
+    ring(x, y);
 
-    if (isMilestone(n)) {
+    if (isMilestone(n) || opened) {
       buzz([40, 60, 40, 60, 40, 60, 160]);
-      spawn('burst', x, y, 60);
-      setTimeout(() => showMilestone(h, n), 450);
+      spawn('spiral', x, y, 70);
+      setTimeout(() => showMilestone(h, n, opened, x, y), 450);
       return;
     }
     buzz(allDone ? [30, 50, 30, 50, 90] : [25, 45, 55]);
     // A different payoff each time, so you never quite know what you'll get.
     const pick = (Math.random() * 4) | 0;
-    if (pick === 0) spawn('burst', x, y, 110);
-    else if (pick === 1) { spawn('burst', x, y, 40); spawn('rain', 0, 0, 120); }
-    else if (pick === 2) { spawn('burst', x, y, 40); spawn('fountain', 0, 0, 120); }
-    else { spawn('burst', x, y, 40); spawn('sides', 0, 0, 120); }
+    if (pick === 0) spawn('spiral', x, y, 130);
+    else if (pick === 1) { spawn('spiral', x, y, 45); spawn('rain', 0, 0, 120); }
+    else if (pick === 2) { spawn('spiral', x, y, 45); spawn('fountain', 0, 0, 120); }
+    else { spawn('burst', x, y, 50); spawn('sides', 0, 0, 120); }
     toast(allDone && state.habits.length > 1 ? `Everything done. Day ${n} on this one.` : PRAISE[(Math.random() * PRAISE.length) | 0](n));
   }
 
-  let msTimer = 0;
-  function showMilestone(h, n) {
+  function travel(w) {
+    state.world = w.id;
+    save();
+    applyWorld();
+    flash();
+    spawn('rain', 0, 0, 140);
+    buzz([20, 40, 60]);
+    toast(`Welcome to ${w.name}.`);
+  }
+
+  let msTimer = 0, pendingWorld = null;
+  function showMilestone(h, n, opened, x, y) {
     const el = $('milestone');
+    el.style.setProperty('--x', x + 'px');
+    el.style.setProperty('--y', y + 'px');
+    pendingWorld = opened || null;
+    $('ms-portal').hidden = !opened;
+    if (opened) $('ms-world').textContent = opened.name;
+    $('ms-close').textContent = opened ? 'Step through' : 'Keep going';
     $('ms-unit').textContent = n === 1 ? 'day down' : 'day streak';
     $('ms-text').textContent = (MS_TEXT[n] || `${n} days of “${h.name}”.`) + ` Next stop: ${nextMilestone(n)}.`;
     el.hidden = false;
@@ -675,7 +846,38 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     setTimeout(() => spawn('sides', 0, 0, 120), 800);
     setTimeout(() => buzz([30, 40, 30, 40, 120]), 500);
   }
-  $('ms-close').addEventListener('click', () => { $('milestone').hidden = true; buzz([15]); });
+  $('ms-close').addEventListener('click', () => {
+    $('milestone').hidden = true;
+    if (pendingWorld) { travel(pendingWorld); pendingWorld = null; } else buzz([15]);
+  });
+
+  /* ---------- World picker ---------- */
+  const worldsDlg = $('worlds');
+  function openWorlds() {
+    const list = $('world-list'), top = peak(), here = applyWorld();
+    list.textContent = '';
+    for (const w of WORLDS) {
+      const open = w.at <= top;
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'world' + (w.id === here.id ? ' here' : '');
+      b.disabled = !open;
+      if (open) b.dataset.world = w.id;
+      b.innerHTML = '<span class="orb"></span><span class="txt"><b></b><span></span></span>';
+      b.querySelector('b').textContent = open ? w.name : '???';
+      b.querySelector('.txt span').textContent = w.id === here.id ? 'You are here'
+        : open ? 'Tap to travel'
+        : `Opens at a ${w.at}-day streak`;
+      b.addEventListener('click', () => { worldsDlg.close(); if (w.id !== here.id) travel(w); });
+      li.appendChild(b);
+      list.appendChild(li);
+    }
+    if (worldsDlg.showModal) worldsDlg.showModal(); else worldsDlg.setAttribute('open', '');
+  }
+  $('sky').addEventListener('click', openWorlds);
+  $('worlds-close').addEventListener('click', () => worldsDlg.close());
+  worldsDlg.addEventListener('click', (e) => { if (e.target === worldsDlg) worldsDlg.close(); });
 
   /* ---------- Add / edit sheet ---------- */
   const sheet = $('sheet');
