@@ -24,10 +24,10 @@
   --ink: #1b1630;
   --muted: #6c6686;
   --line: #e1dcee;
-  --rose: #ff3d7f;
-  --ember: #ff6a3d;
-  --gold: #ffb52e;
-  --on-sun: #2b1005;
+  --rose: #8f6bff;
+  --ember: #b57cff;
+  --gold: #f1b9ff;
+  --on-sun: #1a0838;
   --shadow: 0 1px 2px rgba(27, 22, 48, .06), 0 8px 24px rgba(27, 22, 48, .06);
   --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --body: "Figtree", "Avenir Next", "Segoe UI", system-ui, sans-serif;
@@ -48,6 +48,7 @@
 }
 
 /* Worlds: each one swaps the three glow colours. Streak milestones open them. */
+[data-world="twilight"] { --rose: #8f6bff; --ember: #b57cff; --gold: #f1b9ff; --on-sun: #1a0838; }
 [data-world="daybreak"] { --rose: #ff3d7f; --ember: #ff6a3d; --gold: #ffb52e; --on-sun: #2b1005; }
 [data-world="aurora"]   { --rose: #a58bff; --ember: #3fd0ff; --gold: #5ef2c0; --on-sun: #06201c; }
 [data-world="tidemoon"] { --rose: #7b7bff; --ember: #6fa8ff; --gold: #cfeaff; --on-sun: #0a1238; }
@@ -466,7 +467,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     <span class="stars"></span>
     <span class="rays"></span>
     <span class="sun"></span>
-    <span class="world-chip" id="world-chip">Daybreak</span>
+    <span class="world-chip" id="world-chip">Twilight</span>
   </button>
 
   <ul class="list" id="list"></ul>
@@ -575,6 +576,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
 
   /* ---------- Worlds ---------- */
   const WORLDS = [
+    { id: 'twilight', name: 'Twilight', at: 0 },
     { id: 'daybreak', name: 'Daybreak', at: 0 },
     { id: 'aurora', name: 'Aurora', at: 1 },
     { id: 'tidemoon', name: 'Tidemoon', at: 3 },
@@ -586,8 +588,10 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   // The longest streak ever reached on any habit decides which worlds are open.
   const peak = () => Math.max(state.peak || 0, ...state.habits.map(bestOf));
   function applyWorld() {
+    // Twilight became the starting world; move everyone onto it once, then leave their choice alone.
+    if (!state.twilit) { state.twilit = true; state.world = 'twilight'; }
     const w = WORLDS.find((x) => x.id === state.world && x.at <= peak()) || WORLDS[0];
-    if (w.id === 'daybreak') delete document.documentElement.dataset.world;
+    if (w.id === 'twilight') delete document.documentElement.dataset.world;
     else document.documentElement.dataset.world = w.id;
     $('world-chip').textContent = w.name;
     return w;
