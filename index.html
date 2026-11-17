@@ -237,10 +237,15 @@ button { cursor: pointer; }
   position: relative;
   display: grid; place-items: center;
   width: 84px;
-  padding: 0; border: 0; background: none;
-  cursor: pointer;
 }
-.check:focus-visible { outline: none; }
+/* A real switch under the finger: on iPhone, Safari only gives a haptic tap when the finger itself toggles one. */
+.hit {
+  position: absolute; inset: 0; z-index: 2;
+  width: 100%; height: 100%; margin: 0;
+  opacity: 0; cursor: pointer;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+}
 .ring {
   width: 52px; height: 52px; border-radius: 50%;
   display: grid; place-items: center;
@@ -250,9 +255,9 @@ button { cursor: pointer; }
   pointer-events: none;
 }
 .ring svg { width: 26px; height: 26px; }
-.check:active .ring { transform: scale(.88); }
+
 .habit.done .ring { background: var(--on-sun); border-color: var(--on-sun); color: var(--gold); }
-.check:focus-visible .ring, .habit-main:focus-visible, .add:focus-visible, .btn:focus-visible {
+.habit:has(.hit:focus-visible) .ring, .habit-main:focus-visible, .add:focus-visible, .btn:focus-visible {
   outline: 3px solid var(--ember); outline-offset: 3px;
 }
 
@@ -428,7 +433,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     Add a habit
   </button>
-  <p class="hint" id="hint">Hold a habit down until it pops. Tap its name to rename it. Tap the sky to travel.</p>
+  <p class="hint" id="hint">Hold a habit down until it's full, then let go. Tap its name to rename it. Tap the sky to travel.</p>
 </main>
 
 <dialog class="sheet" id="sheet">
@@ -600,7 +605,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     try { if (navigator.vibrate && navigator.vibrate(pattern)) return; } catch (e) {}
     let t = 0;
     pattern.forEach((ms, i) => {
-      if (i % 2 === 0) { if (t === 0) iosTick(); else setTimeout(iosTick, t); }
+      if (i % 2 === 0) { if (t === 0) { iosTick(); if (ms > 60) { iosTick(); iosTick(); } } else setTimeout(iosTick, t); }
       t += ms;
     });
   }
@@ -806,6 +811,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.6 4.6L19 7.6"/></svg>';
   const rows = new Map();
   const HOLD_MS = 1500, HOLD_DELAY = 110;
+  const CAN_VIBRATE = typeof navigator.vibrate === 'function';
 
   function buildRow(h) {
     const li = document.createElement('li');
@@ -813,67 +819,82 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     li.innerHTML =
       '<button class="habit-main" type="button"><span class="name"></span>' +
       '<span class="meta"><span class="streak">' + SUN + '<span class="streak-text"></span></span><span class="week"></span></span></button>' +
-      '<button class="check" type="button"><span class="ring">' + TICK + '</span></button>';
-    const btn = li.querySelector('.check');
-    btn.id = 'done-' + h.id;
+      '<span class="check"><span class="ring">' + TICK + '</span></span>' +
+      '<input class="hit" type="checkbox" switch>';
+    const input = li.querySelector('.hit');
+    input.id = 'done-' + h.id;
     const isDone = () => !!h.days[dkey(today())];
-    let hold = null, held = false;
+    // press: the touch in progress. last: the touch that just ended, read by the switch's change event.
+    let press = null, last = null, raf = 0;
 
     const clear = () => {
-      cancelAnimationFrame(hold && hold.raf);
-      hold = null;
+      cancelAnimationFrame(raf);
+      if (press) press.charging = false;
       li.classList.remove('holding', 'charged', 'lit');
       li.style.removeProperty('--f'); li.style.removeProperty('--j');
       humStop();
     };
-    const cancel = () => { if (hold) { clear(); stopBuzz(); } };
-    const finish = () => { held = true; clear(); toggle(h.id, true, li); };
+    const cancel = () => { if (press && press.charging) { clear(); stopBuzz(); paintRow(h); } };
+    const finish = () => { press.finished = true; clear(); toggle(h.id, true, li); };
     const step = (now) => {
-      if (!hold) return;
-      const p = Math.max(0, Math.min(1, (now - hold.t0 - HOLD_DELAY) / HOLD_MS));
+      if (!press || !press.charging) return;
+      const p = Math.max(0, Math.min(1, (now - press.t0 - HOLD_DELAY) / HOLD_MS));
       if (p > 0) {
-        held = true;
-        if (!hold.started) { hold.started = true; li.classList.add('holding'); humStart(); }
+        if (!press.started) { press.started = true; li.classList.add('holding'); humStart(); }
         li.style.setProperty('--f', p.toFixed(3));
         li.style.setProperty('--j', ((Math.random() - .5) * p * p * 7).toFixed(1) + 'px');
         li.classList.toggle('lit', p > .62);
         humSet(p);
-        // Pulses get longer and closer together as it charges, so the buzz builds.
-        if (now >= hold.next) { tick(Math.round(8 + p * p * 34)); hold.next = now + 135 - p * 100; }
+        // Pulses get longer and closer together as it charges, so the buzz builds (phones that allow it).
+        if (now >= press.next) { tick(Math.round(8 + p * p * 34)); press.next = now + 135 - p * 100; }
       }
       if (p >= 1) {
         const ua = navigator.userActivation;
-        if (!ua || ua.hasBeenActive) { finish(); return; }
-        // First touch since the app opened: the phone won't allow sound or vibration yet, so pop on release.
-        hold.charged = true;
-        li.classList.add('charged');
+        if (CAN_VIBRATE && (!ua || ua.hasBeenActive)) { finish(); return; }
+        // iPhone, or the first touch since opening: the pop waits for the finger to lift,
+        // because that is the only moment the phone lets a page vibrate.
+        if (!press.charged) {
+          press.charged = true;
+          li.classList.add('charged');
+          li.querySelector('.streak-text').textContent = 'Let go!';
+        }
       }
-      hold.raf = requestAnimationFrame(step);
+      raf = requestAnimationFrame(step);
     };
     li.addEventListener('pointerdown', (e) => {
-      held = false;
-      if (hold || isDone() || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      hold = { x: e.clientX, y: e.clientY, t0: performance.now(), next: 0, raf: 0 };
-      hold.raf = requestAnimationFrame(step);
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      clear();
+      const r = li.getBoundingClientRect();
+      press = { x: e.clientX, y: e.clientY, t0: performance.now(), next: 0, onCircle: e.clientX > r.right - 84, wasDone: isDone(), charging: !isDone() };
+      if (press.charging) raf = requestAnimationFrame(step);
     });
     li.addEventListener('pointermove', (e) => {
-      if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 14) cancel();
+      if (press && press.charging && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 14) cancel();
     });
-    li.addEventListener('pointerup', () => { if (hold && hold.charged) finish(); else cancel(); });
+    li.addEventListener('pointerup', () => {
+      if (!press) return;
+      const p = press;
+      p.dur = performance.now() - p.t0;
+      if (p.charging && p.charged) finish(); else cancel();
+      last = p;
+      setTimeout(() => { if (last === p) last = null; }, 700);
+    });
     li.addEventListener('pointercancel', cancel);
     li.addEventListener('pointerleave', cancel);
     li.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    btn.addEventListener('click', (e) => {
-      if (held) { held = false; return; }
-      if (isDone()) toggle(h.id, false, li);
-      else if (e.detail === 0) toggle(h.id, true, li); // keyboard
-      else toast('Hold it down until it pops.');
+    // The switch toggles itself when the finger lifts. Decide what that touch meant, then put it back in step.
+    input.addEventListener('change', () => {
+      const p = last; last = null;
+      if (!p) { toggle(h.id, !isDone(), li); return; } // keyboard or assistive tech
+      if (!p.finished) {
+        const quick = p.dur < 350;
+        if (p.wasDone) { if (p.onCircle) toggle(h.id, false, li); else if (quick) openSheet(h.id); }
+        else if (quick) { if (p.onCircle) toast('Hold it down, then let go.'); else openSheet(h.id); }
+      }
+      input.checked = isDone();
     });
-    li.querySelector('.habit-main').addEventListener('click', () => {
-      if (held) { held = false; return; }
-      openSheet(h.id);
-    });
+    li.querySelector('.habit-main').addEventListener('click', () => openSheet(h.id));
     rows.set(h.id, li);
     return li;
   }
@@ -883,9 +904,9 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     const t = today(), done = !!h.days[dkey(t)], n = streakOf(h, t);
     li.classList.toggle('done', done);
     li.querySelector('.name').textContent = h.name;
-    const btn = li.querySelector('.check');
-    btn.setAttribute('aria-pressed', String(done));
-    btn.setAttribute('aria-label', (done ? 'Done today, tap to undo: ' : 'Hold to mark done today: ') + h.name);
+    const input = li.querySelector('.hit');
+    input.checked = done;
+    input.setAttribute('aria-label', (done ? 'Done today: ' : 'Hold to mark done today: ') + h.name);
     const s = li.querySelector('.streak');
     s.classList.toggle('cold', n === 0);
     li.querySelector('.streak-text').textContent = n === 0 ? 'Start today' : n === 1 ? '1 day' : n + ' days';
