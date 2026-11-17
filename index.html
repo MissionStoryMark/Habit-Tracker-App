@@ -509,6 +509,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
       <div><dt>Best</dt><dd id="stat-best">0</dd></div>
       <div><dt>Total</dt><dd id="stat-total">0</dd></div>
     </dl>
+    <div class="row" id="reset-row" hidden><button class="btn" id="sheet-reset" type="button">Reset streak to zero</button></div>
     <label class="field" for="habit-name">What will you do every day?
       <input id="habit-name" type="text" maxlength="60" autocomplete="off" enterkeyhint="done" placeholder="Up at 5 AM">
     </label>
@@ -1328,6 +1329,9 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     $('sheet-delete').hidden = !editing;
     $('sheet-delete').textContent = 'Delete';
     $('sheet-stats').hidden = !editing;
+    resetArmed = false;
+    $('sheet-reset').textContent = 'Reset streak to zero';
+    $('reset-row').hidden = !editing || Object.keys(editing.days).length === 0;
     $('habit-name').value = editing ? editing.name : '';
     const fx = (editing && editing.fx) || {};
     $('habit-emojis').value = (fx.emojis || []).join(' ');
@@ -1341,6 +1345,17 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     if (sheet.showModal) sheet.showModal(); else sheet.setAttribute('open', '');
     if (!editing) $('habit-name').focus();
   }
+  // Wipe a habit's history so its streak starts over. Worlds follow the longest streak left on any habit.
+  let resetArmed = false;
+  $('sheet-reset').addEventListener('click', () => {
+    if (!editing) return;
+    if (!resetArmed) { resetArmed = true; $('sheet-reset').textContent = 'Tap again to erase this streak'; return; }
+    editing.days = {};
+    state.peak = Math.max(0, ...state.habits.map(bestOf));
+    save(); render(); closeSheet();
+    sfx.fizzle();
+    toast('Streak reset. Day one starts now.');
+  });
   let sheetPic = null;
   function setPic(img) {
     sheetPic = img;
