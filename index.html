@@ -413,6 +413,22 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   0% { opacity: 1; transform: scale(.3) rotate(0deg); }
   100% { opacity: 0; transform: scale(8) rotate(220deg); }
 }
+.milestone .big.bump { animation: bump .55s cubic-bezier(.3, 1.7, .5, 1); }
+@keyframes bump { 40% { transform: scale(1.28); } }
+/* The last seven days, ending today, each with its tick. */
+.ms-week { display: flex; gap: 10px; margin: 16px 0 4px; }
+.ms-week div { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .75rem; font-weight: 700; letter-spacing: .04em; }
+.ms-week i {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  border: 2.5px solid color-mix(in srgb, var(--on-sun) 32%, transparent);
+  color: transparent;
+}
+.ms-week i svg { width: 16px; height: 16px; }
+.ms-week i.on { background: var(--on-sun); border-color: var(--on-sun); color: var(--gold); }
+.ms-week i.new { animation: stamp .5s .75s cubic-bezier(.3, 1.7, .5, 1) backwards; }
+@keyframes stamp { from { transform: scale(0); } }
+.ms-week .today { text-decoration: underline; text-underline-offset: 3px; }
 .ms-portal { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .ms-portal small { font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .ms-portal strong { font: 800 2rem/1.05 var(--display); letter-spacing: -.02em; }
@@ -518,6 +534,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   <div class="milestone-inner">
     <div class="big" id="ms-num">7</div>
     <div class="unit" id="ms-unit">day streak</div>
+    <div class="ms-week" id="ms-week"></div>
     <p id="ms-text"></p>
     <div class="ms-portal" id="ms-portal" hidden><small>A portal opened</small><strong id="ms-world"></strong></div>
     <button class="btn" id="ms-close" type="button">Keep going</button>
@@ -870,6 +887,8 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
         at += gap * (.6 + Math.random()); gap *= 1.035;
       }
     }),
+    page: () => play((t) => whoosh(t, .7, 300, 3600, .16)),
+    count: () => play((t) => { tone(t, 300, .12, .3, 'sine', 120); bell(t, note(9), .16); bell(t + .09, note(11), .12); bell(t + .18, note(14), .09); }),
     portal: () => play((t) => { whoosh(t, 1.3, 200, 5000, .3); tone(t, 110, 1.2, .2, 'sine', 440); [0, 4, 7, 9, 12, 14].forEach((n, i) => bell(t + .5 + i * .09, note(n + 2), .11)); }),
     travel: () => play((t) => { whoosh(t, .9, 3000, 300, .22); [9, 7, 4, 2, 0].forEach((n, i) => bell(t + i * .08, note(n + 5), .1)); })
   };
@@ -1182,7 +1201,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
       buzz(rumble(5200));
       sfx.pop(true, 5);
       spawn('spiral', x, y, 70);
-      setTimeout(() => showMilestone(h, n, opened, x, y), 450);
+      setTimeout(() => showMilestone(h, n, opened, x, y, true, allDone), 450);
       return;
     }
     buzz(rumble(allDone ? 3400 : 2800));
@@ -1193,7 +1212,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     else if (pick === 1) { spawn('spiral', x, y, 45); spawn('rain', 0, 0, 120); }
     else if (pick === 2) { spawn('spiral', x, y, 45); spawn('fountain', 0, 0, 120); }
     else { spawn('burst', x, y, 50); spawn('sides', 0, 0, 120); }
-    toast(allDone && state.habits.length > 1 ? `Everything done. Day ${n} on this one.` : PRAISE[(Math.random() * PRAISE.length) | 0](n));
+    setTimeout(() => showMilestone(h, n, null, x, y, false, allDone), 800);
   }
 
   function travel(w) {
@@ -1209,31 +1228,61 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   }
 
   let msTimer = 0, pendingWorld = null;
-  function showMilestone(h, n, opened, x, y) {
+  // The full-page streak screen, shown after every completion. `big` is a milestone day.
+  function showMilestone(h, n, opened, x, y, big, allDone) {
     const el = $('milestone');
+    if (!h.days[dkey(today())]) return; // undone again before the page opened
     el.style.setProperty('--x', x + 'px');
     el.style.setProperty('--y', y + 'px');
     pendingWorld = opened || null;
     $('ms-portal').hidden = !opened;
     if (opened) $('ms-world').textContent = opened.name;
     $('ms-close').textContent = opened ? 'Step through' : 'Keep going';
-    $('ms-unit').textContent = n === 1 ? 'day down' : 'day streak';
-    $('ms-text').textContent = (MS_TEXT[n] || `${n} days of “${h.name}”.`) + ` Next stop: ${nextMilestone(n)}.`;
+    $('ms-unit').textContent = 'day streak';
+
+    const t = today(), week = $('ms-week');
+    week.textContent = '';
+    for (let k = 6; k >= 0; k--) {
+      const d = shift(t, -k), cell = document.createElement('div'), dot = document.createElement('i');
+      if (h.days[dkey(d)]) { dot.className = k === 0 ? 'on new' : 'on'; dot.innerHTML = TICK; }
+      const lab = document.createElement('span');
+      lab.textContent = d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 2);
+      if (k === 0) lab.className = 'today';
+      cell.append(lab, dot);
+      week.appendChild(cell);
+    }
+
+    const nw = WORLDS.find((w) => w.at > Math.max(peak(), n));
+    const left = nw ? nw.at - n : 0;
+    const ahead = nw ? `${left} more ${left === 1 ? 'day' : 'days'} opens a new world.` : `Next stop: ${nextMilestone(n)}.`;
+    const lead = big ? (MS_TEXT[n] || `${n} days of “${h.name}”.`)
+      : allDone && state.habits.length > 1 ? 'Everything is done for today.'
+      : PRAISE[(Math.random() * PRAISE.length) | 0](n);
+    $('ms-text').textContent = lead + ' ' + ahead;
+
     el.hidden = false;
-    sfx.portal();
+    el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+    if (big) sfx.portal(); else sfx.page();
     $('ms-close').focus({ preventScroll: true });
+
+    // Yesterday's number first, then it ticks over to today's.
     const num = $('ms-num');
-    const start = performance.now(), dur = reduced ? 0 : Math.min(1400, 300 + n * 40);
-    const step = (now) => {
-      const p = dur ? Math.min(1, (now - start) / dur) : 1;
-      num.textContent = Math.max(1, Math.round(n * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) msTimer = requestAnimationFrame(step);
-    };
-    cancelAnimationFrame(msTimer);
-    msTimer = requestAnimationFrame(step);
-    spawn('rain', 0, 0, 160);
-    setTimeout(() => spawn('fountain', 0, 0, 140), 350);
-    setTimeout(() => spawn('sides', 0, 0, 120), 800);
+    num.classList.remove('bump');
+    num.textContent = n - 1;
+    clearTimeout(msTimer);
+    msTimer = setTimeout(() => {
+      num.textContent = n;
+      void num.offsetWidth; num.classList.add('bump');
+      sfx.count();
+    }, reduced ? 0 : 750);
+
+    if (big) {
+      spawn('rain', 0, 0, 160);
+      setTimeout(() => spawn('fountain', 0, 0, 140), 350);
+      setTimeout(() => spawn('sides', 0, 0, 120), 800);
+    } else {
+      setTimeout(() => spawn('fountain', 0, 0, 70), 750);
+    }
   }
   $('ms-close').addEventListener('click', () => {
     $('milestone').hidden = true;
