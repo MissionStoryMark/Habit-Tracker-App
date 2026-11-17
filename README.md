@@ -1,6 +1,6 @@
 # Daybreak Streaks
 
-A tiny personal habit tracker. Add the things you want to do every day, hold one down until it pops, and watch the streak grow. Holding charges the row from left to right with a rising hum and buzz; the pop comes with a chime, a glow, stardust and a rumble. Long streaks open portals to new colour worlds. Streak milestones (1, 3, 7, 14, 21, 30, 50, 100, 365 days…) get a full-screen celebration.
+A tiny personal habit tracker. Add the things you want to do every day, hold one down until it is full (or tap its circle fast), and watch the streak grow. Holding charges the row from left to right with a rising hum and buzz; the pop comes with a chime, a glow, stardust and a rumble. Long streaks open portals to new colour worlds. Streak milestones (1, 3, 7, 14, 21, 30, 50, 100, 365 days…) get a full-screen celebration.
 
 ## Files
 
@@ -18,4 +18,8 @@ Your habits are saved on the phone itself, in the browser's storage for that add
 
 ## Vibration
 
-Android uses the Vibration API. iPhones have no vibration API for web pages, so the app relies on the tap Safari gives when a switch control is toggled (iOS 17.4 and later).
+Android uses the Vibration API, so the buzz builds during a hold. iPhones have no vibration API for web pages: Safari only gives a haptic tap when a finger flips a switch control (iOS 17.4 and later), so each habit circle and the opening screen sit on an invisible switch, and tapping the circle is the way to feel the charge build.
+
+## Sound
+
+All sound is synthesised with Web Audio, no files. The app asks iOS for the `playback` audio session so it is heard with the silent switch on; the speaker button mutes it.

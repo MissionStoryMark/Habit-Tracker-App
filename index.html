@@ -82,7 +82,18 @@ button { cursor: pointer; }
 }
 
 /* ---------- Sky ---------- */
-.top { display: flex; flex-direction: column; gap: 2px; }
+.top { display: flex; align-items: flex-start; gap: 12px; }
+.top-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mute {
+  flex: none; width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center;
+  border: 1.5px solid var(--line); border-radius: 50%;
+  background: none; color: var(--muted);
+}
+.mute svg { width: 22px; height: 22px; }
+.mute .off { display: none; }
+.mute[aria-pressed="false"] .on { display: none; }
+.mute[aria-pressed="false"] .off { display: inline; }
 .date {
   margin: 0;
   font-size: .8125rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
@@ -238,13 +249,11 @@ button { cursor: pointer; }
   display: grid; place-items: center;
   width: 84px;
 }
-/* A real switch under the finger: on iPhone, Safari only gives a haptic tap when the finger itself toggles one. */
-.hit {
-  position: absolute; inset: 0; z-index: 2;
-  width: 100%; height: 100%; margin: 0;
-  opacity: 0; cursor: pointer;
-  touch-action: pan-y;
-  -webkit-touch-callout: none;
+.check { cursor: pointer; }
+/* A real switch under the fingertip: Safari on iPhone gives a haptic tap each time a finger flips one. */
+.check input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer;
 }
 .ring {
   width: 52px; height: 52px; border-radius: 50%;
@@ -257,7 +266,7 @@ button { cursor: pointer; }
 .ring svg { width: 26px; height: 26px; }
 
 .habit.done .ring { background: var(--on-sun); border-color: var(--on-sun); color: var(--gold); }
-.habit:has(.hit:focus-visible) .ring, .habit-main:focus-visible, .add:focus-visible, .btn:focus-visible {
+.check:has(input:focus-visible) .ring, .mute:focus-visible, .habit-main:focus-visible, .add:focus-visible, .btn:focus-visible {
   outline: 3px solid var(--ember); outline-offset: 3px;
 }
 
@@ -307,6 +316,30 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
 }
 .btn.primary { background: linear-gradient(100deg, var(--rose), var(--ember) 55%, var(--gold)); color: var(--on-sun); }
 .btn.danger { color: var(--rose); }
+
+/* ---------- Opening veil: one tap wakes sound and haptics ---------- */
+.veil {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  text-align: center; cursor: pointer;
+}
+.veil input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.veil-orb {
+  width: 132px; height: 132px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--gold), var(--ember) 62%, var(--rose));
+  animation: breathe 1.6s ease-in-out infinite alternate;
+}
+@keyframes breathe {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ember) 55%, transparent), 0 0 30px var(--gold); transform: scale(.96); }
+  to { box-shadow: 0 0 0 26px transparent, 0 0 70px var(--gold); transform: scale(1.04); }
+}
+.veil-title { margin-top: 10px; font: 800 2.25rem/1 var(--display); letter-spacing: -.03em; }
+.veil-sub { font-size: .8125rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.veil.gone { animation: lift .55s ease forwards; pointer-events: none; }
+@keyframes lift { to { opacity: 0; transform: scale(1.25); } }
 
 /* ---------- Celebration ---------- */
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
@@ -416,8 +449,17 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
 <!--BODY-->
 <main class="app">
   <header class="top">
-    <p class="date" id="date"></p>
-    <h1 class="count" id="count">Daybreak</h1>
+    <div class="top-text">
+      <p class="date" id="date"></p>
+      <h1 class="count" id="count">Daybreak</h1>
+    </div>
+    <button class="mute" id="mute" type="button" aria-pressed="true" aria-label="Sound">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/>
+        <g class="on"><path d="M15.5 9a4.2 4.2 0 010 6M18.3 6.4a8 8 0 010 11.2"/></g>
+        <g class="off"><path d="M16 9.5l5 5M21 9.5l-5 5"/></g>
+      </svg>
+    </button>
   </header>
 
   <button class="sky" id="sky" type="button" aria-label="Choose a world">
@@ -433,7 +475,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     Add a habit
   </button>
-  <p class="hint" id="hint">Hold a habit down until it's full, then let go. Tap its name to rename it. Tap the sky to travel.</p>
+  <p class="hint" id="hint">Hold a habit down until it's full, or tap its circle fast. Tap a name to rename it. Tap the sky to travel.</p>
 </main>
 
 <dialog class="sheet" id="sheet">
@@ -475,6 +517,13 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
 </dialog>
 
 <div class="portal-ring" id="portal-ring" aria-hidden="true"></div>
+
+<label class="veil" id="veil">
+  <input type="checkbox" switch id="veil-switch" aria-label="Begin">
+  <span class="veil-orb"></span>
+  <span class="veil-title">Daybreak</span>
+  <span class="veil-sub">Tap to begin</span>
+</label>
 
 <div class="flash" id="flash" aria-hidden="true"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -629,30 +678,88 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   }
 
   /* ---------- Sound ---------- */
-  let ac = null, hum = null, owedPop = null;
+  let ac = null, master = null, noiseBuf = null, hum = null;
+  const muted = () => !!state.mute;
   function audio() {
     try {
-      if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); }
-      if (ac.state === 'suspended') ac.resume().catch(() => {});
+      if (!ac) {
+        const A = window.AudioContext || window.webkitAudioContext;
+        if (!A) return null;
+        // Ask iOS to treat this as real audio, so it plays even with the silent switch on.
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+        ac = new A();
+        const comp = ac.createDynamicsCompressor();
+        master = ac.createGain(); master.gain.value = .9;
+        master.connect(comp); comp.connect(ac.destination);
+        noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (ac.state !== 'running') ac.resume().catch(() => {});
       return ac;
     } catch (e) { return null; }
   }
-  function humStart() {
+  // Run a sound now, or the moment the phone allows it if that comes within half a second.
+  function play(fn) {
+    if (muted()) return;
     const a = audio();
-    if (!a || hum) return;
-    const o = a.createOscillator(), o2 = a.createOscillator(), g = a.createGain();
-    o.type = 'triangle'; o2.type = 'sine';
-    o.frequency.value = 110; o2.frequency.value = 165; g.gain.value = 0;
-    o.connect(g); o2.connect(g); g.connect(a.destination);
+    if (!a) return;
+    if (a.state === 'running') { fn(a.currentTime); return; }
+    const asked = Date.now();
+    a.resume().then(() => { if (Date.now() - asked < 500) fn(a.currentTime); }).catch(() => {});
+  }
+  // Phones only let sound start inside a finished touch, so every touch tries to wake it.
+  const unlock = () => { if (!muted()) audio(); };
+  ['touchend', 'pointerup', 'click', 'keydown'].forEach((ev) => addEventListener(ev, unlock, true));
+
+  function tone(t, f, dur, vol, type, f2) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f, t);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + .008);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .05);
+  }
+  function bell(t, f, vol) { tone(t, f, 1.1, vol, 'sine'); tone(t, f * 2.76, .32, vol * .25, 'sine'); }
+  function whoosh(t, dur, f0, f1, vol) {
+    const n = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+    n.buffer = noiseBuf; n.loop = true;
+    bp.type = 'bandpass'; bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + dur * .35);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    n.connect(bp); bp.connect(g); g.connect(master); n.start(t); n.stop(t + dur + .05);
+  }
+  // A five-note scale climbing from G: any run of these sounds like it is going somewhere.
+  const SCALE = [0, 2, 4, 7, 9];
+  const note = (i) => 392 * Math.pow(2, (Math.floor(i / 5) * 12 + SCALE[i % 5]) / 12);
+
+  // The charging sound: a low engine that brightens and rises, with a run of notes climbing over it.
+  function humStart() {
+    if (muted() || hum) return;
+    const a = audio();
+    if (!a || a.state !== 'running') return;
+    const o = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter(), g = a.createGain();
+    o.type = 'sawtooth'; o2.type = 'sawtooth';
+    o.frequency.value = 82; o2.frequency.value = 82.8;
+    lp.type = 'lowpass'; lp.frequency.value = 300; lp.Q.value = 6;
+    g.gain.value = 0;
+    o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
     o.start(); o2.start();
-    hum = { o, o2, g };
+    hum = { o, o2, lp, g, step: -1 };
   }
   function humSet(p) {
     if (!hum) return;
     const t = ac.currentTime, q = p * p;
-    hum.o.frequency.setTargetAtTime(110 + q * 330, t, .03);
-    hum.o2.frequency.setTargetAtTime(165 + q * 495, t, .03);
-    hum.g.gain.setTargetAtTime(.025 + p * .1, t, .03);
+    hum.o.frequency.setTargetAtTime(82 + q * 250, t, .04);
+    hum.o2.frequency.setTargetAtTime(82.8 + q * 254, t, .04);
+    hum.lp.frequency.setTargetAtTime(300 + q * 3800, t, .04);
+    hum.g.gain.setTargetAtTime(.05 + p * .13, t, .04);
+    const s = Math.floor(p * 14);
+    if (s > hum.step) { hum.step = s; tone(t, note(s), .16, .1, 'triangle'); }
   }
   function humStop() {
     if (!hum) return;
@@ -661,34 +768,30 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     h.g.gain.setTargetAtTime(0, t, .03);
     h.o.stop(t + .25); h.o2.stop(t + .25);
   }
-  function popSound(big) {
-    const a = audio();
-    // Phones only let sound start after a finished touch. If it isn't allowed yet, play it on release.
-    if (!a || a.state !== 'running') { owedPop = { at: Date.now(), big }; return; }
-    const t = a.currentTime;
-    const o = a.createOscillator(), g = a.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(540, t); o.frequency.exponentialRampToValueAtTime(85, t + .15);
-    g.gain.setValueAtTime(.55, t); g.gain.exponentialRampToValueAtTime(.001, t + .2);
-    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + .22);
-    const notes = big ? [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093] : [659.25, 783.99, 1046.5, 1318.5];
-    notes.forEach((f, i) => {
-      const at = t + .07 + i * .085;
-      const n = a.createOscillator(), ng = a.createGain();
-      n.type = 'sine'; n.frequency.value = f;
-      ng.gain.setValueAtTime(0, at); ng.gain.linearRampToValueAtTime(.15, at + .012); ng.gain.exponentialRampToValueAtTime(.001, at + 1.1);
-      n.connect(ng); ng.connect(a.destination); n.start(at); n.stop(at + 1.15);
-    });
-  }
-  const settle = () => {
-    const a = audio();
-    if (owedPop && a) {
-      const owed = owedPop; owedPop = null;
-      if (Date.now() - owed.at < 2500) setTimeout(() => popSound(owed.big), 60);
-    }
+  const sfx = {
+    enter: () => play((t) => { whoosh(t, .8, 300, 4000, .18); [0, 2, 4, 7].forEach((n, i) => bell(t + .1 + i * .09, note(n + 2), .1)); }),
+    tap: (i) => play((t) => { tone(t, note(i * 2), .22, .17, 'triangle'); tone(t, note(i * 2) * 2, .1, .05, 'sine'); }),
+    ready: (i) => play((t) => tone(t, note(12 + (i % 3)), .12, .07, 'triangle')),
+    fizzle: () => play((t) => { tone(t, 420, .3, .1, 'triangle', 90); whoosh(t, .3, 2500, 300, .08); }),
+    undo: () => play((t) => tone(t, 520, .18, .1, 'sine', 200)),
+    click: () => play((t) => tone(t, 880, .06, .06, 'sine')),
+    // The pop itself, a rush of air, a rising chord, then twinkles for as long as the stardust falls.
+    pop: (big, secs) => play((t) => {
+      tone(t, 560, .2, .6, 'sine', 70);
+      whoosh(t, .5, 500, 6000, .28);
+      (big ? [0, 2, 4, 5, 7, 9, 10, 12] : [2, 4, 5, 7, 9]).forEach((n, i) => bell(t + .06 + i * .07, note(n + 3), .13));
+      let at = .5, gap = .07;
+      while (at < secs) {
+        bell(t + at, note(8 + ((Math.random() * 10) | 0)), .05 * (1 - at / secs) + .015);
+        at += gap * (.6 + Math.random()); gap *= 1.035;
+      }
+    }),
+    portal: () => play((t) => { whoosh(t, 1.3, 200, 5000, .3); tone(t, 110, 1.2, .2, 'sine', 440); [0, 4, 7, 9, 12, 14].forEach((n, i) => bell(t + .5 + i * .09, note(n + 2), .11)); }),
+    travel: () => play((t) => { whoosh(t, .9, 3000, 300, .22); [9, 7, 4, 2, 0].forEach((n, i) => bell(t + i * .08, note(n + 5), .1)); })
   };
-  addEventListener('pointerup', settle);
-  addEventListener('touchend', settle);
+  // iPhone: a few extra haptic taps, spent inside the touch events that follow a release.
+  let owedTicks = 0;
+  ['touchend', 'click'].forEach((ev) => addEventListener(ev, () => { if (owedTicks > 0) { owedTicks--; iosTick(); } }, true));
 
   /* ---------- Confetti ---------- */
   const cv = $('fx'), cx = cv.getContext('2d');
@@ -810,7 +913,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
   const SUN = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="5"/><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></g></svg>';
   const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.6 4.6L19 7.6"/></svg>';
   const rows = new Map();
-  const HOLD_MS = 1500, HOLD_DELAY = 110;
+  const HOLD_MS = 1500, HOLD_DELAY = 180, TAPS = 6;
   const CAN_VIBRATE = typeof navigator.vibrate === 'function';
 
   function buildRow(h) {
@@ -819,82 +922,99 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     li.innerHTML =
       '<button class="habit-main" type="button"><span class="name"></span>' +
       '<span class="meta"><span class="streak">' + SUN + '<span class="streak-text"></span></span><span class="week"></span></span></button>' +
-      '<span class="check"><span class="ring">' + TICK + '</span></span>' +
-      '<input class="hit" type="checkbox" switch>';
-    const input = li.querySelector('.hit');
+      '<label class="check"><input type="checkbox" switch><span class="ring">' + TICK + '</span></label>';
+    const input = li.querySelector('.check input');
     input.id = 'done-' + h.id;
     const isDone = () => !!h.days[dkey(today())];
-    // press: the touch in progress. last: the touch that just ended, read by the switch's change event.
-    let press = null, last = null, raf = 0;
+    // charge: how full the row is from taps (0 to 1). press: a hold in progress. held: the last touch was a hold.
+    let charge = 0, press = null, raf = 0, held = false, drain = 0, viaKey = false;
+    input.addEventListener('keydown', () => { viaKey = true; });
 
+    const showCharge = () => {
+      if (charge > 0) li.style.setProperty('--f', charge.toFixed(3)); else li.style.removeProperty('--f');
+      li.style.removeProperty('--j');
+      li.classList.toggle('lit', charge > .62);
+    };
     const clear = () => {
       cancelAnimationFrame(raf);
-      if (press) press.charging = false;
-      li.classList.remove('holding', 'charged', 'lit');
-      li.style.removeProperty('--f'); li.style.removeProperty('--j');
+      li.classList.remove('holding', 'charged');
       humStop();
+      showCharge();
     };
-    const cancel = () => { if (press && press.charging) { clear(); stopBuzz(); paintRow(h); } };
-    const finish = () => { press.finished = true; clear(); toggle(h.id, true, li); };
+    const cancel = () => {
+      if (!press) return;
+      const started = press.started;
+      press = null;
+      if (started) { clear(); stopBuzz(); sfx.fizzle(); paintRow(h); }
+    };
+    const complete = () => {
+      clearTimeout(drain);
+      charge = 0; press = null;
+      clear();
+      if (!CAN_VIBRATE) { owedTicks = 2; setTimeout(() => { owedTicks = 0; }, 700); }
+      toggle(h.id, true, li);
+    };
     const step = (now) => {
-      if (!press || !press.charging) return;
-      const p = Math.max(0, Math.min(1, (now - press.t0 - HOLD_DELAY) / HOLD_MS));
-      if (p > 0) {
-        if (!press.started) { press.started = true; li.classList.add('holding'); humStart(); }
+      if (!press) return;
+      const time = Math.max(0, Math.min(1, (now - press.t0 - HOLD_DELAY) / HOLD_MS));
+      const p = charge + (1 - charge) * time;
+      if (time > 0) {
+        if (!press.started) { press.started = true; held = true; clearTimeout(drain); li.classList.add('holding'); humStart(); }
         li.style.setProperty('--f', p.toFixed(3));
         li.style.setProperty('--j', ((Math.random() - .5) * p * p * 7).toFixed(1) + 'px');
         li.classList.toggle('lit', p > .62);
         humSet(p);
-        // Pulses get longer and closer together as it charges, so the buzz builds (phones that allow it).
+        // Pulses get longer and closer together as it charges, so the buzz builds (on phones that allow it).
         if (now >= press.next) { tick(Math.round(8 + p * p * 34)); press.next = now + 135 - p * 100; }
       }
-      if (p >= 1) {
+      if (time >= 1) {
         const ua = navigator.userActivation;
-        if (CAN_VIBRATE && (!ua || ua.hasBeenActive)) { finish(); return; }
-        // iPhone, or the first touch since opening: the pop waits for the finger to lift,
-        // because that is the only moment the phone lets a page vibrate.
+        if (CAN_VIBRATE && (!ua || ua.hasBeenActive)) { complete(); return; }
+        // iPhone: wait for the finger to lift, the one moment Safari lets a page vibrate.
         if (!press.charged) {
-          press.charged = true;
+          press.charged = true; press.ping = 0; press.nextPing = 0;
           li.classList.add('charged');
           li.querySelector('.streak-text').textContent = 'Let go!';
         }
+        if (now >= press.nextPing) { sfx.ready(press.ping++); press.nextPing = now + 120; }
       }
       raf = requestAnimationFrame(step);
     };
     li.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      clear();
-      const r = li.getBoundingClientRect();
-      press = { x: e.clientX, y: e.clientY, t0: performance.now(), next: 0, onCircle: e.clientX > r.right - 84, wasDone: isDone(), charging: !isDone() };
-      if (press.charging) raf = requestAnimationFrame(step);
+      held = false; viaKey = false;
+      if (press || isDone() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      press = { x: e.clientX, y: e.clientY, t0: performance.now(), next: 0 };
+      raf = requestAnimationFrame(step);
     });
     li.addEventListener('pointermove', (e) => {
-      if (press && press.charging && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 14) cancel();
+      if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 14) cancel();
     });
-    li.addEventListener('pointerup', () => {
-      if (!press) return;
-      const p = press;
-      p.dur = performance.now() - p.t0;
-      if (p.charging && p.charged) finish(); else cancel();
-      last = p;
-      setTimeout(() => { if (last === p) last = null; }, 700);
-    });
-    li.addEventListener('pointercancel', cancel);
+    const release = () => { if (press && press.charged) complete(); else cancel(); };
+    li.addEventListener('pointerup', release);
+    li.addEventListener('pointercancel', release);
     li.addEventListener('pointerleave', cancel);
     li.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // The switch toggles itself when the finger lifts. Decide what that touch meant, then put it back in step.
+    // A tap on the circle flips the switch under it. Each tap adds charge; enough of them pop it.
     input.addEventListener('change', () => {
-      const p = last; last = null;
-      if (!p) { toggle(h.id, !isDone(), li); return; } // keyboard or assistive tech
-      if (!p.finished) {
-        const quick = p.dur < 350;
-        if (p.wasDone) { if (p.onCircle) toggle(h.id, false, li); else if (quick) openSheet(h.id); }
-        else if (quick) { if (p.onCircle) toast('Hold it down, then let go.'); else openSheet(h.id); }
-      }
-      input.checked = isDone();
+      if (held) { held = false; input.checked = isDone(); return; }
+      if (isDone()) { toggle(h.id, false, li); return; }
+      if (viaKey) { complete(); return; } // keyboard: one press is enough
+      clearTimeout(drain);
+      charge = Math.min(1, charge + 1 / TAPS);
+      const n = Math.round(charge * TAPS);
+      if (n >= TAPS) { complete(); return; }
+      input.checked = false;
+      showCharge();
+      tick(10 + n * 6);
+      sfx.tap(n);
+      if (n === 1) toast('Keep tapping, or hold it down.');
+      drain = setTimeout(() => { charge = 0; showCharge(); sfx.fizzle(); }, 1500);
     });
-    li.querySelector('.habit-main').addEventListener('click', () => openSheet(h.id));
+    li.querySelector('.habit-main').addEventListener('click', () => {
+      if (held) { held = false; return; }
+      openSheet(h.id);
+    });
     rows.set(h.id, li);
     return li;
   }
@@ -904,7 +1024,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     const t = today(), done = !!h.days[dkey(t)], n = streakOf(h, t);
     li.classList.toggle('done', done);
     li.querySelector('.name').textContent = h.name;
-    const input = li.querySelector('.hit');
+    const input = li.querySelector('.check input');
     input.checked = done;
     input.setAttribute('aria-label', (done ? 'Done today: ' : 'Hold to mark done today: ') + h.name);
     const s = li.querySelector('.streak');
@@ -933,6 +1053,8 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     sky.style.setProperty('--p', total ? done / total : 0);
     sky.classList.toggle('full', total > 0 && done === total);
     $('hint').hidden = total === 0;
+    $('mute').setAttribute('aria-pressed', String(!state.mute));
+    $('mute').setAttribute('aria-label', state.mute ? 'Sound is off' : 'Sound is on');
   }
   let shownDay = '';
   function render() {
@@ -958,7 +1080,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     save();
     paintRow(h);
     paintTop();
-    if (!checked) { stopBuzz(); buzz([10]); return; }
+    if (!checked) { stopBuzz(); buzz([10]); sfx.undo(); return; }
 
     const allDone = state.habits.every((x) => x.days[k]);
     const r = li.querySelector('.ring').getBoundingClientRect();
@@ -969,13 +1091,13 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
 
     if (isMilestone(n) || opened) {
       buzz(rumble(5200));
-      popSound(true);
+      sfx.pop(true, 5);
       spawn('spiral', x, y, 70);
       setTimeout(() => showMilestone(h, n, opened, x, y), 450);
       return;
     }
     buzz(rumble(allDone ? 3400 : 2800));
-    popSound(allDone && state.habits.length > 1);
+    sfx.pop(allDone && state.habits.length > 1, allDone ? 3.4 : 2.8);
     // A different payoff each time, so you never quite know what you'll get.
     const pick = (Math.random() * 4) | 0;
     if (pick === 0) spawn('spiral', x, y, 130);
@@ -992,6 +1114,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     flash();
     spawn('rain', 0, 0, 140);
     buzz([20, 40, 60]);
+    sfx.travel();
     toast(`Welcome to ${w.name}.`);
   }
 
@@ -1007,6 +1130,7 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     $('ms-unit').textContent = n === 1 ? 'day down' : 'day streak';
     $('ms-text').textContent = (MS_TEXT[n] || `${n} days of “${h.name}”.`) + ` Next stop: ${nextMilestone(n)}.`;
     el.hidden = false;
+    sfx.portal();
     $('ms-close').focus({ preventScroll: true });
     const num = $('ms-num');
     const start = performance.now(), dur = reduced ? 0 : Math.min(1400, 300 + n * 40);
@@ -1084,12 +1208,31 @@ dialog.sheet::backdrop { background: rgba(14, 10, 32, .55); }
     if (!name) { $('habit-name').focus(); return; }
     if (editing) editing.name = name;
     else state.habits.push({ id: uid(), name, days: {} });
-    save(); render(); closeSheet(); buzz([15]);
+    save(); render(); closeSheet(); buzz([15]); sfx.click();
   });
   $('sheet-delete').addEventListener('click', () => {
     if (!armed) { armed = true; $('sheet-delete').textContent = 'Tap again to delete'; return; }
     state.habits = state.habits.filter((h) => h !== editing);
     save(); render(); closeSheet();
+  });
+
+  $('mute').addEventListener('click', () => {
+    state.mute = !state.mute;
+    if (state.mute) humStop();
+    save(); paintTop();
+    sfx.click();
+    toast(state.mute ? 'Sound off' : 'Sound on');
+  });
+  // The opening tap: a real touch on a real switch, which is what wakes sound and haptics on a phone.
+  $('veil-switch').addEventListener('change', () => {
+    const v = $('veil');
+    if (v.classList.contains('gone')) return;
+    v.classList.add('gone');
+    setTimeout(() => { v.hidden = true; }, 600);
+    iosTick();
+    try { if (navigator.vibrate) navigator.vibrate(20); } catch (e) {}
+    sfx.enter();
+    ring(innerWidth / 2, innerHeight / 2);
   });
 
   /* ---------- Boot ---------- */
